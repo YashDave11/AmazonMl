@@ -38,6 +38,16 @@ _Best leaderboard so far: **0.623274** (Stage 0). Submissions used today: 1/5._
   data). Reproduce outputs from code via `stage0.py run`; they are NOT versioned.
 
 ## Change history (detail)
+### 2026-09-26 — Stage 1 blocking (recall gate passed, not yet submitted)
+- Diagnostic (`stage1.py diag`, 5k): reachable-recall ceilings — exact-core 0.50,
+  name-token 0.858, address-token 0.957, name∪address **1.000**, cross-script 14%.
+- Blocker rebuilt as word (1,2)-gram TF-IDF over name+address, IDF-weighted,
+  high-DF pruned, per-country top-k cosine ∪ exact core-name.
+- 15k holdout, K=40: **blocking recall 0.9558, 76.9 cand/S1** → ≥0.95 gate PASSED.
+- Not committed as a scoring row (no LB submission — dev only under the ≥0.95 gate).
+- ⚠️ matmul slow (~25min/15k); needs speedup before the 1.73M test `run`.
+- Next: Stage 1b IDF composite scorer → first Stage 1 F_0.5 on the holdout.
+
 ### 2026-09-26 — Stage 0 (ref `v0-stage0`)
 - Built `normalize.py`, `metric.py`, `stage0.py`; validated F_0.5 harness.
 - Blocking recall 0.522, mean 30.6 candidates/S1; tau=0.30 optimal.
