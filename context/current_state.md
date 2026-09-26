@@ -15,6 +15,16 @@ Local 50k-holdout val (0.641) tracks the leaderboard (0.623) within ~0.018.
 Likely-source of the small gap: test set includes France (absent from our
 train-based holdout), which may be slightly harder.
 
+## Version control (rollback safety)
+- Git repo initialized at `student_resource/`; remote `origin` =
+  https://github.com/YashDave11/AmazonMl.git, branch `main`.
+- `dataset/` and `output/` are git-ignored (large / reproducible).
+- Tagged good states are the rollback map — see `context/progress_tracker.md`.
+  Current good state: tag **`v0-stage0`** (LB 0.623274). Roll back with
+  `git checkout v0-stage0`.
+- Workflow: before risky work, ensure last good state is committed & tagged;
+  after a scoring change, add a row to `progress_tracker.md`, commit, and tag.
+
 ## Stage 0 results (validated on 50k train holdout)
 - Blocking macro-recall = 0.522, mean candidates/S1 = 30.6 (cap=300).
 - F_0.5 vs tau: peaks at **tau=0.30 → 0.641** (0.20→0.638, 0.40→0.622). Stable at 20k & 50k.
