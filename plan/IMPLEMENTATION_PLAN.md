@@ -95,59 +95,88 @@ Self-check: assert `Corp`≡`Corporation`, `Pvt Ltd`≡`Private Limited`,
 We have 5 subs/day. Each stage is independently shippable; ship the simplest
 thing that scores, measure, then climb. **Never skip local F_0.5 validation.**
 
-### Stage 0 — deterministic baseline (target ≥0.5) — FIRST SUBMISSION
+> ### ⛔ SUBMISSION GATE (revised 2026-09-26, updated target)
+> **Do NOT upload to the leaderboard until local val F_0.5 ≥ 0.95.** The field
+> is tight — leaderboard #1 is **0.990556**, our rank is 2005, and Stage 0
+> (LB 0.623274) is already banked and safe. Intermediate stages are developed
+> and tuned **entirely on the local holdout**; we spend a submission only when
+> we can clear 0.95. Because local ran ~0.018 optimistic vs. LB at Stage 0 (and
+> France is unseen in our holdout), **aim for local ≥ 0.96 to leave margin.**
+> After we bank ≥0.95, keep climbing toward 0.99 (the real goal is the top).
+>
+> The stages below are unchanged in *approach*; only the target bands moved up.
+> We climb ONE lever at a time and re-measure — blocking recall first (it caps
+> everything), then the matcher, then consistency/calibration.
+
+### Target ladder (each gated by the local holdout, not the board)
+| Step | Lever | Blocking recall | Expected local F_0.5 |
+|------|-------|-----------------|----------------------|
+| Stage 0 ✓ | exact core-name + addr gate | 0.52 | 0.641 (LB 0.623) |
+| Stage 1 | fuzzy union blocking + composite scoring | ~0.95+ | 0.75–0.85 |
+| Stage 2 | LightGBM pair classifier | (same) | 0.88–0.94 |
+| Stage 3 | cross-source consistency + per-entity selection + calibration | — | **0.95+ → UPLOAD** |
+| Stage 4 | residual error-mining toward the top | — | 0.96 → 0.99 |
+
+### Stage 0 — deterministic baseline ✓ DONE (LB 0.623274)
 Highest-precision thing that exists:
 - Partition by country (hard). Blocking: candidates = S2/S3 records with the
   **same `name_core` within the same country**, gated by ≥1 shared address token.
 - Match rule: accept if `name_norm` exact-equal AND address token Jaccard ≥ τ
-  (τ tuned on validation for F_0.5, expect ~0.3–0.5). Else no match.
-- Rationale: exact normalized-name + address agreement is very high precision;
-  and address agreement is what protects us from the **19% of S1 that share a
-  core name with a different business** (EDA #5). Singletons fall out naturally.
-- **Recall is capped ~43.7%** (EDA: exact core-name ceiling) — so this is a
-  precision-first floor, not the finish. Because F_0.5 is precision-heavy it can
-  still land ~0.5–0.6. Ship it, confirm local-vs-leaderboard correlation, then climb.
+  (τ=0.30 optimal). Recall capped ~0.52 by design — the floor we banked.
 
-### Stage 1 — fuzzy blocking + similarity scoring (target ~0.7)
+### Stage 1 — fuzzy blocking + composite scoring (local target 0.75–0.85)
+**This is the recall unlock — the single biggest lever (0.52 → ~0.95+).**
 - Blocking recall engine (all within country): char n-gram (3–4) **TF-IDF** over
-  transliterated `name_norm` — this is the backbone (EDA: 91.8% of matches share
-  a name trigram). Take top-k nearest S2/S3 per S1 by sparse cosine. **Union**
-  with: content-token block (84.8% ceiling) and an **address n-gram/number
-  block** to reach the ~8% (esp. cross-script) where the name is useless but the
-  address still overlaps. Measure combined recall vs. mean candidates/S1 and pick
-  the knee (candidate size is scored).
-- Verify the unidecode Devanagari lift here (EDA open question): if translit
-  doesn't lift ASCII↔Devanagari name similarity enough, those matches must ride
-  the address block.
+  transliterated `name_norm` — the backbone (EDA: 91.8% of matches share a name
+  trigram). Take top-k nearest S2/S3 per S1 by sparse cosine. **Union** with:
+  content-token block (84.8% ceiling) and an **address n-gram/number block** to
+  reach the ~8% (esp. cross-script) where the name is useless but the address
+  overlaps. Measure combined recall vs. mean candidates/S1 and pick the knee.
+  **Gate to advance: blocking recall ≥ 0.95 on the holdout.**
+- Verify the unidecode Devanagari lift here: if translit doesn't lift
+  ASCII↔Devanagari name similarity enough, those matches must ride the address block.
 - Scoring: rule-based composite from name sim (rapidfuzz token_sort + char-cosine,
   IDF-weighted so legal/generic tokens don't dominate), address sim, shared
-  numbers/city. Threshold for F_0.5.
+  numbers/city. Threshold for F_0.5. (Interim — replaced by the model in Stage 2.)
 
-### Stage 2 — supervised pair classifier (target 0.8→0.9)
+### Stage 2 — supervised pair classifier (local target 0.88–0.94)
 - Training pairs: positives = GT matches; negatives = blocking candidates that
   are NOT in GT (hard negatives, the ones that actually confuse the matcher).
   Balance/subsample negatives (they vastly outnumber positives).
 - Features per (S1, candidate) pair:
   - Name: token Jaccard, char-ngram cosine, rapidfuzz ratio/token_sort/
-    token_set, Levenshtein ratio, length ratio, shared-rare-token count,
+    token_set, Levenshtein ratio, length ratio, shared-rare-token count (IDF),
     prefix/acronym match, digit-set overlap.
   - Address: same similarity family on `addr_norm`/`addr_tokens`, shared
     number tokens (street/PIN), shared city/region token, both-empty flag.
   - Meta: `country_match` (boolean, generalizes to France — do NOT one-hot the
     country value), name-contains, source (S2 vs S3) as a feature.
-- Model: **LightGBM** (fast, CPU-friendly, MIT-compatible, handles the tabular
-  features well) predicting P(match). Threshold tuned on the F_0.5 curve
-  (precision-heavy → expect a high cut, ~0.6–0.8).
-- Post-processing options to test: per-S1 keep-all-above-τ (matches are
-  many-to-one, no global uniqueness), optional margin rule, drop lone weak
-  candidates to protect singletons.
+- Model: **LightGBM** (fast, CPU-friendly, MIT/Apache, strong on tabular)
+  predicting P(match). Threshold tuned on the F_0.5 curve (precision-heavy →
+  high cut). Calibrate on the holdout.
 
-### Stage 3 — refinement (climb toward 0.9)
-- Per-country / per-source threshold tuning; France sanity slice.
-- Better blocking recall (phonetic keys, sorted-neighborhood) without inflating
-  candidate size — watch the reduction-ratio (blocking is scored).
-- Feature ablation; calibrate probabilities; small ensembles only if they pay.
-- Error analysis on validation false-merges vs misses; fix the dominant bucket.
+### Stage 3 — consistency + per-entity selection + calibration (local target 0.95+ → FIRST HIGH UPLOAD)
+The lever that turns a good classifier into a great macro-F_0.5:
+- **Per-S1 match selection, not a global threshold.** Matches are many-to-one;
+  select per entity — e.g. absolute prob cut + a relative margin off the top
+  candidate, and prefer emitting empty when the best is weak (protects the 5.6%
+  singletons, each worth 1.0).
+- **Cross-source consistency (the out-of-the-box edge).** 80% of S1 match BOTH a
+  S2 and a S3 record. Also block S2↔S3 and score them; a consistent triangle
+  (S1–S2, S1–S3, S2–S3 all similar) is high-confidence → raise recall without
+  hurting precision; an inconsistent lone edge → demote. This exploits structure
+  a generic pairwise matcher ignores.
+- Per-country / per-source threshold tuning; probability calibration.
+- **Gate: local F_0.5 ≥ 0.95 (aim 0.96 for margin) → then upload.**
+
+### Stage 4 — residual error-mining toward the top (0.96 → 0.99)
+- Error analysis on holdout false-merges vs. misses; fix the dominant bucket
+  each iteration (cross-script names, landmark/PIN-sparse Indian addresses,
+  abbreviation edge cases, France accents).
+- Squeeze blocking recall toward ~0.99 without inflating candidate size (scored).
+- Consider a small MIT/Apache text-embedding model for the hard residual names
+  IF CPU-feasible at scale (4 GB GPU limits this) — only if hand features plateau.
+- Small ensembles / feature additions only when they pay on the holdout.
 
 ## 6. Local validation harness (build in Stage 0, reuse forever)
 
@@ -193,7 +222,8 @@ Highest-precision thing that exists:
 | Wasting daily submissions | always run validator; only submit when val improves |
 
 ## 10. Definition of done per milestone
-- M1 (Stage 0): validator PASS, val F_0.5 ≥ 0.5, first leaderboard score logged.
-- M2 (Stage 1): val F_0.5 ≈ 0.7, blocking recall + candidate-size reported.
-- M3 (Stage 2): val F_0.5 ≥ 0.8 with LightGBM, threshold tuned for F_0.5.
-- M4 (Stage 3): climbing toward 0.9; final zip + methodology doc assembled.
+- M1 (Stage 0): validator PASS, val F_0.5 ≥ 0.5, first leaderboard score logged. ✓ (0.623)
+- M2 (Stage 1): blocking recall ≥ 0.95 on holdout; interim val F_0.5 0.75–0.85. Dev only.
+- M3 (Stage 2): val F_0.5 0.88–0.94 with LightGBM, threshold tuned for F_0.5. Dev only.
+- M4 (Stage 3): **val F_0.5 ≥ 0.95 (aim 0.96) → validator PASS → FIRST HIGH UPLOAD.**
+- M5 (Stage 4): climb toward 0.99; final zip + methodology doc assembled.

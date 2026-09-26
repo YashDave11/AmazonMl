@@ -5,10 +5,20 @@ roll back to. **Append a row here whenever a submission is made or a stage
 lands.** Pair with `current_state.md` (current snapshot) — this file is the
 timeline + rollback map.
 
-## Targets
-- [x] Milestone 1 — clear **0.5** on leaderboard. (0.623274 ✓)
-- [ ] Milestone 2 — reach **~0.7** (Stage 1: fuzzy blocking + IDF scoring).
-- [ ] Milestone 3 — reach **0.8–0.9** (Stage 2: LightGBM pair classifier).
+## Targets (revised 2026-09-26 — hard ≥0.95 upload gate)
+- [x] Milestone 1 — clear **0.5** on leaderboard. (0.623274 ✓, banked at `v0-stage0`)
+- [ ] Milestone 2 — Stage 1 fuzzy union blocking: **blocking recall ≥ 0.95** on
+      holdout (local F_0.5 ~0.75–0.85). Dev only — NOT uploaded.
+- [ ] Milestone 3 — Stage 2 LightGBM pair classifier (local F_0.5 ~0.88–0.94).
+      Dev only — NOT uploaded.
+- [ ] Milestone 4 — Stage 3 consistency + per-entity selection + calibration:
+      **local F_0.5 ≥ 0.95 (aim 0.96) → FIRST HIGH UPLOAD.**
+- [ ] Milestone 5 — Stage 4 residual error-mining toward **0.99** (top is 0.990556).
+
+## ⛔ UPLOAD GATE
+Do NOT spend a submission until local val F_0.5 ≥ 0.95. Local ran ~0.018
+optimistic vs LB at Stage 0, so aim ≥0.96 for margin. Stage 0 is safe on the
+board; intermediate stages are tuned entirely on the local holdout.
 
 ## Score log
 | # | Date (UTC) | Stage / change | Val F_0.5 | LB F_0.5 | Git ref | Rollback |

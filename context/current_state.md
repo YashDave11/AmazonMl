@@ -2,7 +2,12 @@
 
 _Last updated: 2026-09-26 (Stage 0 SCORED on leaderboard)_
 
-## Overall status: STAGE 0 SUBMITTED & SCORED — on the board at 0.623, target 0.5 cleared
+## Overall status: STAGE 0 BANKED (LB 0.623) — now climbing to ≥0.95 offline before next upload
+⛔ New rule: next submission must clear **local val F_0.5 ≥ 0.95** (aim 0.96 for
+margin) before we spend it. Leaderboard #1 is 0.990556; rank 2005; goal is the
+top. We climb one lever at a time (blocking → matcher → consistency) and
+re-measure on the holdout. See `plan/IMPLEMENTATION_PLAN.md` §5 and
+`context/next_steps.md`.
 
 ## Best leaderboard score: 0.623274 (1 submission used) · best LOCAL val F_0.5 = 0.641
 | Sub # | Date | Approach | Val F_0.5 | LB F_0.5 | Notes |
@@ -52,10 +57,15 @@ train-based holdout), which may be slightly harder.
   cross-script (Devanagari/accented); 19.1% of S1 share a core name; address
   Jaccard median 0.64. Plan revised accordingly.
 
-## What is NOT done (everything else)
-- No normalization module, no blocking, no features, no model, no submission.
-- No local F_0.5 validation harness.
-- Missing libs (rapidfuzz, unidecode, python-Levenshtein) not yet installed.
+## What is NOT done (the climb to ≥0.95)
+- ⛔ **Upload gate now in force**: do NOT submit until local val F_0.5 ≥ 0.95
+  (aim 0.96 for margin — local ran ~0.018 optimistic vs LB). Stage 0 is banked.
+- Stage 1 not started: fuzzy union blocking (char-ngram TF-IDF ∪ content-token
+  ∪ address block) to lift blocking recall 0.52 → ≥0.95; IDF composite scorer.
+- Stage 2 not started: LightGBM pair classifier on hard negatives.
+- Stage 3 not started: cross-source consistency + per-entity selection +
+  calibration (the milestone that should clear 0.95).
+- See `context/next_steps.md` for the exact ordered steps.
 
 ## Open decisions / risks
 - 16GB RAM vs 10M+ S2/S3 records → must chunk per-country/per-source; verify
